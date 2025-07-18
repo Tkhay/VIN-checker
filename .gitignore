@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+venv310/
+ENV/
+
+# macOS system files
+.DS_Store
+
+# VS Code settings (optional, if you're using it)
+.vscode/
+
+# Python cache
+*.log
+*.pot
+*.pyc
+
+# Jupyter Notebook checkpoints (just in case)
+.ipynb_checkpoints/
+
+# Environment/config files
+*.env
+.env.*
+
+# Requirements backup (optional)
+pip-log.txt
+
+# OS metadata
+Thumbs.db
+ehthumbs.db
