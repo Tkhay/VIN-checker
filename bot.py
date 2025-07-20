@@ -17,7 +17,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 model = None
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash-lite-preview-06-17')
 
 # Flask app for webhook
 app = Flask(__name__)
