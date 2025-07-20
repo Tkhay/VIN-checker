@@ -5,13 +5,13 @@ python3.10 -m venv venv310
 
 Step 2
 -------
-Install requirements
+Start virtual environment
 
 Step 3
 --------
-Start virtual environment
+Install requirements
 
 Step 4
 --------
-Run python3 vin_bot.py
+Run python3 bot.py
 
