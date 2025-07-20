@@ -183,7 +183,7 @@ def webhook_info():
         'max_connections': info.max_connections,
         'allowed_updates': info.allowed_updates
     })
-
+# Enable this for local testing
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=False)
