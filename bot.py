@@ -17,7 +17,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 model = None
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash-lite-preview-06-17')
 
 # Flask app for webhook
 app = Flask(__name__)
@@ -183,7 +183,7 @@ def webhook_info():
         'max_connections': info.max_connections,
         'allowed_updates': info.allowed_updates
     })
-
+# Enable this for local testing
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     app.run(host="0.0.0.0", port=port, debug=False)
