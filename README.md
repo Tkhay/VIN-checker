@@ -1,3 +1,9 @@
+THIS VIN BOT CHECKER SCRAPES YOUR DESIRED WEBSITE FOR THE VIN BEFORE PASSING IT TO THE BOT.
+
+Set your website URL in the ENV (VIN_WEBSITE_URL)
+
+You will also need the TELEGRAM API from BOTFATHER and your GEMINI API key to get the total gallons
+
 Step 1
 -------
 Create a virtual environment with python 3.10
