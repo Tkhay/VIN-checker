@@ -12,13 +12,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 import time
 
-# Load environment variables
+
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 VIN_WEBSITE_URL = os.getenv("VIN_WEBSITE_URL")  
 
-# Configure Gemini AI
+
 model = None
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configure Chrome options for headless browsing
+
 def get_chrome_options():
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -55,15 +55,14 @@ def scrape_vin_from_website():
         chrome_options = get_chrome_options()
         driver = webdriver.Chrome(options=chrome_options)
         
-        # Navigate to the website
+        
         driver.get(VIN_WEBSITE_URL)
         logger.info(f"Navigated to {VIN_WEBSITE_URL}")
         
-        # Wait for page to load and find the "Generate Real VIN" button
+        
         wait = WebDriverWait(driver, 10)
         
-        # Adjust these selectors based on your actual website structure
-        # Common button selectors to try:
+        
         button_selectors = [
             'input.random:nth-child(2)',
             "//button[contains(text(), 'Random Real VIN')]",
@@ -85,15 +84,14 @@ def scrape_vin_from_website():
             logger.error("Could not find Generate VIN button")
             return None
         
-        # Click the button
+        
         driver.execute_script("arguments[0].click();", button)
         logger.info("Clicked Generate VIN button")
         
-        # Wait a moment for VIN to be generated
+        
         time.sleep(2)
         
-        # Find and extract the VIN
-        # Common VIN display selectors to try:
+        
         vin_selectors = [
             '//*[@id="Result"]'
             "//span[@id='Result']",
@@ -138,7 +136,7 @@ def scrape_vin_from_website():
         if driver:
             driver.quit()
 
-# Bot Commands
+
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         " Welcome to VIN Bot!\n\n"
@@ -158,7 +156,7 @@ def help_command(update: Update, context: CallbackContext):
         "The bot will get VINs from the configured website and provide complete vehicle information including fuel capacity."
     )
 
-# Check VIN command sets bot to expect VIN next
+
 def checkvin(update: Update, context: CallbackContext):
     update.message.reply_text("📝 Send me a VIN and I'll provide vehicle info including fuel tank capacity.")
     context.user_data["expecting_vin"] = True
@@ -178,7 +176,6 @@ def process_vin_count(update: Update, count: int):
     for i in range(count):
         update.message.reply_text(f" Processing VIN {i+1}/{count}...")
         
-        # Scrape VIN from website
         vin = scrape_vin_from_website()
         
         if not vin:
@@ -188,7 +185,7 @@ def process_vin_count(update: Update, count: int):
             })
             continue
         
-        # Process the VIN
+        
         vin_info = get_vin_info(vin)
         
         if vin_info:
@@ -204,7 +201,6 @@ def process_vin_count(update: Update, count: int):
                 'error': 'Failed to decode VIN'
             })
     
-    # Send final results
     send_batch_results(update, results)
 
 def get_vin_info(vin: str):
@@ -223,12 +219,10 @@ def get_vin_info(vin: str):
 
         logger.info(f"NHTSA decoded - VIN: {vin}, Make: {make}, Model: {model}, Year: {year}")
 
-        # Check if VIN decoding was successful
         if make == "N/A" or model == "N/A" or year == "N/A":
             logger.warning(f"VIN decoding failed for {vin}")
             return None
 
-        # Get fuel capacity from Gemini API
         fuel_capacity = get_fuel_capacity_from_gemini(make, model, year)
 
         return {
@@ -287,25 +281,22 @@ def send_batch_results(update: Update, results):
     else:
         update.message.reply_text(response_text, parse_mode='Markdown')
 
-# VIN Handler
 def handle_message(update: Update, context: CallbackContext):
     message_text = update.message.text.strip()
     
-    # Check if user is expecting to input a VIN
     if context.user_data.get("expecting_vin"):
         context.user_data["expecting_vin"] = False
         send_vin_info(update, message_text)
         return
     
-    # Check if message is a number for batch VIN processing
     if message_text.isdigit():
         count = int(message_text)
         if 1 <= count <= 2:
             process_vin_count(update, count)
         else:
-            update.message.reply_text("❌ Please enter 1 or 2 for VIN count.\nUse /checkvin to decode a VIN manually.")
+            update.message.reply_text(" Please enter 1 or 2 for VIN count.\nUse /checkvin to decode a VIN manually.")
     else:
-        update.message.reply_text("🤔 Send a number (1-2) to scrape VINs, or use /checkvin to decode a VIN manually.")
+        update.message.reply_text(" Send a number (1-2) to scrape VINs, or use /checkvin to decode a VIN manually.")
 
 def get_fuel_capacity_from_gemini(make: str, model_name: str, year: str):
     """
@@ -342,7 +333,6 @@ def send_vin_info(update: Update, vin: str):
     """
     Send VIN information for manual VIN input
     """
-    # Show "typing" indicator while processing
     update.message.reply_text("🔍 Decoding VIN and looking up fuel capacity...")
     
     vin_info = get_vin_info(vin)
@@ -351,7 +341,6 @@ def send_vin_info(update: Update, vin: str):
         update.message.reply_text("❌ Invalid VIN or unable to decode. Please check the VIN and try again.")
         return
     
-    # Format and send the response
     response_text = (
         f"🚗 **Vehicle Information**\n\n"
         f"**VIN:** {vin}\n"
