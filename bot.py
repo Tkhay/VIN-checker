@@ -109,7 +109,6 @@ def scrape_vin_from_website():
             try:
                 vin_element = driver.find_element(By.XPATH, selector)
                 vin_text = vin_element.text.strip()
-                # Basic VIN validation (17 characters, alphanumeric excluding I, O, Q)
                 if len(vin_text) == 17 and vin_text.replace(' ', '').isalnum():
                     vin = vin_text.replace(' ', '')
                     logger.info(f"Found VIN: {vin}")
@@ -118,7 +117,6 @@ def scrape_vin_from_website():
                 continue
         
         if not vin:
-            # Try to find any 17-character alphanumeric string on the page
             page_text = driver.page_source
             import re
             vin_pattern = r'[A-HJ-NPR-Z0-9]{17}'
@@ -135,7 +133,6 @@ def scrape_vin_from_website():
     finally:
         if driver:
             driver.quit()
-
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
@@ -175,7 +172,6 @@ def process_vin_count(update: Update, count: int):
     
     for i in range(count):
         update.message.reply_text(f" Processing VIN {i+1}/{count}...")
-        
         vin = scrape_vin_from_website()
         
         if not vin:
