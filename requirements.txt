@@ -1,10 +1,5 @@
-
-python-telegram-bot==13.15
-requests==2.31.0
-python-dotenv==1.0.0
-google-generativeai==0.3.2
-selenium==4.15.2
-webdriver-manager==4.0.1
-urllib3==2.0.7
-certifi==2023.11.17
-colorlog==6.8.0
+Flask==3.1.1
+protobuf==6.31.1
+python-dotenv==1.1.1
+python-telegram-bot==22.3
+Requests==2.32.4

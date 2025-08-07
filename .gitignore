@@ -33,3 +33,4 @@ pip-log.txt
 # OS metadata
 Thumbs.db
 ehthumbs.db
+test_imports.py
