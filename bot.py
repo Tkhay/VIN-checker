@@ -3,21 +3,17 @@ import logging
 import requests
 from dotenv import load_dotenv
 from flask import Flask, request
-from telegram import Update, InputFile
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters
-)
 import csv
 import io
+import asyncio
+from pathlib import Path
 
 # Load environment variables
-load_dotenv()
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL") 
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 # Logging
 logging.basicConfig(
@@ -29,31 +25,48 @@ logger = logging.getLogger(__name__)
 
 # Create Flask app
 app = Flask(__name__)
-application = Application.builder().token(TOKEN).build()
 
-# --- HANDLER FUNCTIONS ---
+def send_message(chat_id, text, parse_mode=None):
+    """Send a text message to a chat"""
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    data = {
+        "chat_id": chat_id,
+        "text": text
+    }
+    if parse_mode:
+        data["parse_mode"] = parse_mode
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Welcome to the **Multi-VIN Bot**!\n\n"
-        "Send me one or more VINs separated by commas (e.g., `VIN1,VIN2,VIN3`).\n"
-        "I'll decode them and send back a CSV file with the **VIN, Year, Make, and Model** for each!\n\n"
-        "Use /help for more information.",
-        parse_mode='Markdown'
-    )
+    try:
+        response = requests.post(url, data=data, timeout=10)
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send message: {e}")
+        return False
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "📚 **Multi-VIN Bot Help**\n\n"
-        "To get vehicle information:\n"
-        "Just type or paste your VINs, separated by commas.\n"
-        "Example: `1GNAF13R6CN123456,5UXWX7C5XBA000001`\n\n"
-        "The bot will respond with a CSV file containing the decoded VIN data.\n\n"
-        "**Note:** Fuel capacity lookup is not included in this version to simplify CSV output.",
-        parse_mode='Markdown'
-    )
+def send_document(chat_id, document_content, filename, caption=None):
+    """Send a document to a chat"""
+    url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
+
+    files = {
+        'document': (filename, document_content, 'text/csv')
+    }
+    data = {
+        'chat_id': chat_id
+    }
+    if caption:
+        data['caption'] = caption
+
+    try:
+        response = requests.post(url, files=files, data=data, timeout=30)
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send document: {e}")
+        return False
 
 def get_vin_info(vin: str):
+    """Decode VIN using NHTSA API"""
     url = f"https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/{vin}?format=json"
     try:
         response = requests.get(url, timeout=10)
@@ -80,15 +93,37 @@ def get_vin_info(vin: str):
         logger.error(f"Error decoding VIN {vin}: {e}")
         return None
 
-async def handle_vins(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text.strip()
+def handle_start_command(chat_id):
+    """Handle /start command"""
+    message = (
+        "👋 Welcome to the **Multi-VIN Bot**!\n\n"
+        "Send me one or more VINs separated by commas (e.g., `VIN1,VIN2,VIN3`).\n"
+        "I'll decode them and send back a CSV file with the **VIN, Year, Make, and Model** for each!\n\n"
+        "Use /help for more information."
+    )
+    send_message(chat_id, message, parse_mode='Markdown')
+
+def handle_help_command(chat_id):
+    """Handle /help command"""
+    message = (
+        "📚 **Multi-VIN Bot Help**\n\n"
+        "To get vehicle information:\n"
+        "Just type or paste your VINs, separated by commas.\n"
+        "Example: `1GNAF13R6CN123456`,`5UXWX7C5XBA000001`\n\n"
+        "The bot will respond with a CSV file containing the decoded VIN data.\n\n"
+        "**Note:** Fuel capacity lookup is not included in this version to simplify CSV output."
+    )
+    send_message(chat_id, message, parse_mode='Markdown')
+
+def handle_vins(chat_id, user_input):
+    """Handle VIN processing"""
     vins = [vin.strip().upper() for vin in user_input.split(',') if vin.strip()]
 
     if not vins:
-        await update.message.reply_text("Please provide at least one VIN.")
+        send_message(chat_id, "Please provide at least one VIN.")
         return
 
-    await update.message.reply_text(f"Processing {len(vins)} VIN(s)...")
+    send_message(chat_id, f"Processing {len(vins)} VIN(s)...")
 
     decoded_data = []
     for vin in vins:
@@ -107,41 +142,89 @@ async def handle_vins(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             decoded_data.append({'VIN': vin, 'Year': 'N/A', 'Make': 'N/A', 'Model': 'N/A'})
 
+    # Create CSV content
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=['VIN', 'Year', 'Make', 'Model'])
     writer.writeheader()
     writer.writerows(decoded_data)
-    output.seek(0)
+    csv_content = output.getvalue().encode('utf-8')
 
-    await update.message.reply_document(
-        document=InputFile(output.getvalue().encode('utf-8'), filename='vin_data.csv'),
-        caption="Here's your VIN data CSV! 📊"
-    )
-
-# --- FLASK ROUTE FOR WEBHOOK ---
+    # Send the CSV file
+    send_document(chat_id, csv_content, 'vin_data.csv', "Here's your VIN data CSV! 📊")
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    application.update_queue.put_nowait(update)
-    return "OK"
+    """Handle incoming webhook updates"""
+    try:
+        update = request.get_json()
+        logger.info(f"Received update: {update}")
 
-# --- STARTUP FUNCTION (run once manually to set the webhook) ---
+        if not update or 'message' not in update:
+            return 'OK', 200
 
-async def set_webhook():
-    await application.bot.set_webhook(WEBHOOK_URL)
-    logger.info(f"Webhook set to {WEBHOOK_URL}")
+        message = update['message']
+        chat_id = message['chat']['id']
+        text = message.get('text', '').strip()
 
-# --- INIT ---
+        if text == '/start':
+            handle_start_command(chat_id)
+        elif text == '/help':
+            handle_help_command(chat_id)
+        elif text and not text.startswith('/'):
+            handle_vins(chat_id, text)
+        else:
+            send_message(chat_id, "Unknown command. Use /help for available commands.")
 
-def setup():
-    # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_vins))
+        return 'OK', 200
 
-# Only run this manually ONCE to register webhook
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        return 'OK', 200
+
+@app.route('/')
+def index():
+    """Health check endpoint"""
+    return 'Bot is running!', 200
+
+# Function to set webhook (run this once manually)
+def set_webhook():
+    """Set the webhook URL"""
+    url = f"https://api.telegram.org/bot{TOKEN}/setWebhook"
+    data = {"url": WEBHOOK_URL}
+
+    try:
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+        result = response.json()
+        logger.info(f"Webhook set successfully: {result}")
+        print(f"Webhook set successfully: {result}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to set webhook: {e}")
+        print(f"Failed to set webhook: {e}")
+        return False
+
+# Function to check webhook status
+def check_webhook():
+    """Check current webhook status"""
+    url = f"https://api.telegram.org/bot{TOKEN}/getWebhookInfo"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        logger.info(f"Webhook info: {result}")
+        print(f"Webhook info: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to get webhook info: {e}")
+        print(f"Failed to get webhook info: {e}")
+        return None
+
 if __name__ == "__main__":
-    import asyncio
-    setup()
-    asyncio.run(set_webhook())
+    # This will only run when you execute the script directly
+    # Use this to set up the webhook initially
+    print("Setting up webhook...")
+    set_webhook()
+    print("Checking webhook status...")
+    check_webhook()
